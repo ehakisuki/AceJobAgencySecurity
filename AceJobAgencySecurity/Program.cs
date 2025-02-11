@@ -34,6 +34,9 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequiredLength = 12;
     options.Password.RequireNonAlphanumeric = true;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5); // Account lockout duration
+    options.Lockout.MaxFailedAccessAttempts = 5; // Number of failed login attempts before lockout
+    options.Lockout.AllowedForNewUsers = true; // Lockout new users
 });
 
 // Enable session management
