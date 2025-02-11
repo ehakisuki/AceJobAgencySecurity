@@ -15,6 +15,9 @@ namespace AceJobAgencySecurity.Models
         public DateTime DateOfBirth { get; set; }
         public string WhoAmI { get; set; } = string.Empty;
 
+        // Track the last password change date
+        public DateTime? LastPasswordChanged { get; set; }
+
         // Default constructor for Entity Framework
         public User() { }
 
@@ -30,6 +33,7 @@ namespace AceJobAgencySecurity.Models
         }
     }
 }
+
 
 
 

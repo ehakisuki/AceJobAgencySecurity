@@ -17,14 +17,16 @@ public class AccountController : Controller
     private readonly ILogger<AccountController> _logger;
     private readonly IDistributedCache _cache; // For managing sessions
     private readonly IAuditLogger _auditLogger; // Inject the audit logger service
+    private readonly PasswordExpirationService _passwordExpirationService; // Service to check password expiration
 
-    public AccountController(UserManager<User> userManager, SignInManager<User> signInManager, ILogger<AccountController> logger, IDistributedCache cache, IAuditLogger auditLogger)
+    public AccountController(UserManager<User> userManager, SignInManager<User> signInManager, ILogger<AccountController> logger, IDistributedCache cache, IAuditLogger auditLogger, PasswordExpirationService passwordExpirationService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _logger = logger;
         _cache = cache;
         _auditLogger = auditLogger; // Initialize the audit logger
+        _passwordExpirationService = passwordExpirationService;
     }
 
     // GET: Display the login form
@@ -61,6 +63,13 @@ public class AccountController : Controller
                             ModelState.AddModelError("", "Your account is locked. Please try again later.");
                             return View(model);
                         }
+                    }
+                    // Check if the password has expired
+                    var passwordExpired = await _passwordExpirationService.HasPasswordExpiredAsync(user);
+                    if (passwordExpired)
+                    {
+                        ModelState.AddModelError("", "Your password has expired. Please change your password.");
+                        return View(model);
                     }
 
                     if (await _userManager.CheckPasswordAsync(user, model.Password))
