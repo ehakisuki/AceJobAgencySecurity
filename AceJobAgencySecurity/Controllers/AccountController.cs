@@ -44,43 +44,70 @@ public class AccountController : Controller
             if (ModelState.IsValid)
             {
                 var user = await _userManager.FindByEmailAsync(model.Email);
-                if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+                if (user != null)
                 {
-                    // Log successful login activity
-                    await _auditLogger.LogActivityAsync(user.Id, "User logged in successfully.");
-
-                    // Check if a session exists in the cache
-                    var existingSession = await _cache.GetStringAsync(user.Id);
-                    if (existingSession != null)
+                    // Check if the user is locked out
+                    if (await _userManager.IsLockedOutAsync(user))
                     {
-                        // If a session exists, invalidate the previous session (from another tab/device)
-                        await _cache.RemoveAsync(user.Id);
+                        var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+                        if (lockoutEnd <= DateTimeOffset.UtcNow)
+                        {
+                            // Unlock user if the lockout period has expired
+                            await _userManager.SetLockoutEndDateAsync(user, null);
+                            await _userManager.ResetAccessFailedCountAsync(user);
+                        }
+                        else
+                        {
+                            ModelState.AddModelError("", "Your account is locked. Please try again later.");
+                            return View(model);
+                        }
                     }
 
-                    // Generate a unique session ID
-                    var sessionId = Guid.NewGuid().ToString();
-
-                    // Store the session ID in the cache (Redis or In-Memory)
-                    await _cache.SetStringAsync(user.Id, sessionId, new DistributedCacheEntryOptions
+                    if (await _userManager.CheckPasswordAsync(user, model.Password))
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) // Set session timeout (30 minutes)
-                    });
+                        await _auditLogger.LogActivityAsync(user.Id, "User logged in successfully.");
 
-                    // Set the session ID in the cookie
-                    var cookieOptions = new CookieOptions
+                        // Check if a session exists in the cache
+                        var existingSession = await _cache.GetStringAsync(user.Id);
+                        if (existingSession != null)
+                        {
+                            await _cache.RemoveAsync(user.Id);
+                        }
+
+                        var sessionId = Guid.NewGuid().ToString();
+                        await _cache.SetStringAsync(user.Id, sessionId, new DistributedCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+                        });
+
+                        Response.Cookies.Append("SessionId", sessionId, new CookieOptions
+                        {
+                            Expires = DateTime.Now.AddMinutes(30),
+                            HttpOnly = true,
+                            Secure = true,
+                            SameSite = SameSiteMode.Strict
+                        });
+
+                        await _signInManager.SignInAsync(user, isPersistent: model.RememberMe);
+                        return RedirectToAction("Index", "Home");
+                    }
+                    else
                     {
-                        Expires = DateTime.Now.AddMinutes(30),
-                        HttpOnly = true, // Prevent client-side access to the cookie
-                        Secure = true, // Ensure cookie is transmitted over HTTPS
-                        SameSite = SameSiteMode.Strict // Restrict cookie sending to same-site requests
-                    };
-                    Response.Cookies.Append("SessionId", sessionId, cookieOptions);
-
-                    // Sign in the user
-                    await _signInManager.SignInAsync(user, isPersistent: model.RememberMe);
-                    return RedirectToAction("Index", "Home");  // Redirect to homepage after successful login
+                        await _userManager.AccessFailedAsync(user);
+                        if (await _userManager.IsLockedOutAsync(user))
+                        {
+                            ModelState.AddModelError("", "Too many failed login attempts. Your account has been locked for 5 minutes.");
+                        }
+                        else
+                        {
+                            ModelState.AddModelError("", "Invalid login attempt.");
+                        }
+                    }
                 }
-                ModelState.AddModelError("", "Invalid login attempt.");
+                else
+                {
+                    ModelState.AddModelError("", "Invalid login attempt.");
+                }
             }
         }
         catch (Exception ex)
@@ -93,27 +120,19 @@ public class AccountController : Controller
         return View(model);
     }
 
-    // GET: Display the registration form
     [HttpGet]
     public IActionResult Register()
     {
-        var model = new RegisterViewModel();
-        return View(model);
+        return View(new RegisterViewModel());
     }
 
-    // POST: Handle form submission for registration
     [HttpPost]
-    [ValidateAntiForgeryToken]  // Add CSRF protection
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
         if (ModelState.IsValid)
         {
-            var user = new User
-            {
-                UserName = model.Email,
-                Email = model.Email
-            };
-
+            var user = new User { UserName = model.Email, Email = model.Email };
             var result = await _userManager.CreateAsync(user, model.Password);
             if (result.Succeeded)
             {
@@ -121,45 +140,34 @@ public class AccountController : Controller
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return RedirectToAction("Index", "Home");
             }
-
             foreach (var error in result.Errors)
             {
                 ModelState.AddModelError(string.Empty, error.Description);
             }
         }
-
         return View(model);
     }
 
-    // Implement the logout action
     public async Task<IActionResult> Logout()
     {
-        // Log the logout activity
         if (User.Identity?.Name != null)
         {
             await _auditLogger.LogActivityAsync(User.Identity.Name, "User logged out.");
         }
 
-        // Clear the session cookie (this will invalidate the session)
         Response.Cookies.Delete("SessionId");
 
-        // Remove the session data from cache
         if (User.Identity?.Name != null)
         {
-            await _cache.RemoveAsync(User.Identity.Name);  // Safely remove session from cache
+            await _cache.RemoveAsync(User.Identity.Name);
         }
 
-        // Sign out the user from the Identity system
         await _signInManager.SignOutAsync();
-
-        // Clear the local session
         await HttpContext.SignOutAsync();
 
-        // Redirect to the login page
         return RedirectToAction("Login");
     }
 
-    // Action to check if session is expired and redirect to login page
     public async Task<IActionResult> CheckSession()
     {
         var sessionId = Request.Cookies["SessionId"];
@@ -175,9 +183,10 @@ public class AccountController : Controller
             return RedirectToAction("Login");
         }
 
-        return View(); // You can return a session valid view or dashboard page here
+        return View();
     }
 }
+
 
 
 
