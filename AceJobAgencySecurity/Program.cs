@@ -7,6 +7,7 @@ using AceJobAgencySecurity.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//testing
 // Register IHttpClientFactory
 builder.Services.AddHttpClient();
 
