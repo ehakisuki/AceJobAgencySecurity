@@ -1,0 +1,14 @@
+﻿@{
+    ViewData["Title"] = "Error";
+}
+
+<h2>@ViewData["ErrorTitle"]</h2>
+
+<p>@ViewData["ErrorMessage"]</p>
+@if (ViewData["ShowStackTrace"] != null && (bool)ViewData["ShowStackTrace"])
+{
+    <pre>@ViewData["StackTrace"]</pre>
+}
+
+<a href="/">Go back to home page</a>
+

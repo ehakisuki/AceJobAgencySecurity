@@ -1,0 +1,121 @@
+﻿@model AceJobAgencySecurity.Models.RegisterViewModel
+
+<h2>Register</h2>
+
+<form method="post" enctype="multipart/form-data">
+    <div>
+        <label for="FirstName">First Name</label>
+        <input type="text" id="FirstName" name="FirstName" value="@Model.FirstName" required />
+    </div>
+
+    <div>
+        <label for="LastName">Last Name</label>
+        <input type="text" id="LastName" name="LastName" value="@Model.LastName" required />
+    </div>
+
+    <div>
+        <label for="Gender">Gender</label>
+        <select id="Gender" name="Gender" required>
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="NRIC">NRIC</label>
+        <input type="password" id="NRIC" name="NRIC" required />
+        <small>NRIC will be encrypted for security.</small>
+    </div>
+
+    <div>
+        <label for="Email">Email</label>
+        <input type="email" id="Email" name="Email" value="@Model.Email" required />
+    </div>
+
+    <div>
+        <label for="Password">Password</label>
+        <input type="password" id="Password" name="Password" required onkeyup="checkPasswordStrength()" />
+        <small id="passwordStrengthMessage"></small>
+    </div>
+
+    <div>
+        <label for="ConfirmPassword">Confirm Password</label>
+        <input type="password" id="ConfirmPassword" name="ConfirmPassword" required onkeyup="checkPasswordMatch()" />
+        <small id="passwordMatchMessage"></small>
+    </div>
+
+    <div>
+        <label for="DateOfBirth">Date of Birth</label>
+        <input type="date" id="DateOfBirth" name="DateOfBirth" required />
+    </div>
+
+    <div>
+        <label for="Resume">Resume (PDF or DOCX)</label>
+        <input type="file" id="Resume" name="Resume" accept=".pdf,.docx" required onchange="validateFile()" />
+        <small id="fileValidationMessage"></small>
+    </div>
+
+    <div>
+        <label for="WhoAmI">Who Am I</label>
+        <textarea id="WhoAmI" name="WhoAmI" required>@Model.WhoAmI</textarea>
+    </div>
+
+    <button type="submit">Register</button>
+</form>
+
+<script>
+    function checkPasswordStrength() {
+        var password = document.getElementById("Password").value;
+        var strengthMessage = document.getElementById("passwordStrengthMessage");
+        var strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{12,}$/;
+
+        if (password.length < 12) {
+            strengthMessage.style.color = "red";
+            strengthMessage.innerText = "Password must be at least 12 characters.";
+        } else if (!strongPasswordRegex.test(password)) {
+            strengthMessage.style.color = "orange";
+            strengthMessage.innerText = "Password must include uppercase, lowercase, numbers, and special characters.";
+        } else {
+            strengthMessage.style.color = "green";
+            strengthMessage.innerText = "Strong password.";
+        }
+    }
+
+    function checkPasswordMatch() {
+        var password = document.getElementById("Password").value;
+        var confirmPassword = document.getElementById("ConfirmPassword").value;
+        var matchMessage = document.getElementById("passwordMatchMessage");
+
+        if (password !== confirmPassword) {
+            matchMessage.style.color = "red";
+            matchMessage.innerText = "Passwords do not match.";
+        } else {
+            matchMessage.style.color = "green";
+            matchMessage.innerText = "Passwords match.";
+        }
+    }
+
+    function validateFile() {
+        var fileInput = document.getElementById("Resume");
+        var fileMessage = document.getElementById("fileValidationMessage");
+        var allowedExtensions = [".pdf", ".docx"];
+        var fileName = fileInput.value.toLowerCase();
+        var isValid = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+        if (!isValid) {
+            fileMessage.style.color = "red";
+            fileMessage.innerText = "Invalid file type. Only .pdf and .docx allowed.";
+            fileInput.value = "";
+        } else {
+            fileMessage.style.color = "green";
+            fileMessage.innerText = "Valid file selected.";
+        }
+    }
+</script>
+
+<p>Already have an account? <a href="@Url.Action("Login", "Account")">Login here</a>.</p>
+
+
+
